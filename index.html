@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#F4F4F6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E0E11" media="(prefers-color-scheme: dark)">
+<title>words.</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html { color-scheme: light dark; }
+  body {
+    font-family:-apple-system,"Hiragino Sans","Yu Gothic",sans-serif;
+    background:#F4F4F6; color:#18181B;
+    -webkit-font-smoothing:antialiased; min-height:100vh;
+  }
+  #bgfill { position:fixed; inset:0; background:#F4F4F6; z-index:-1; }
+  .wrap { max-width:600px; margin:0 auto; padding:0 18px; }
+
+  /* ===== ヘッダー ===== */
+  header { padding:calc(env(safe-area-inset-top) + 30px) 0 8px; }
+  .brand { display:flex; align-items:baseline; gap:10px; }
+  .brand h1 {
+    font-size:34px; font-weight:800; letter-spacing:-0.03em; color:#18181B;
+  }
+  .brand .dot { color:#5B5BD6; }
+  .brand .count {
+    margin-left:auto; font-size:12px; color:#A1A1AA; font-weight:600;
+    letter-spacing:0.04em; font-variant-numeric:tabular-nums;
+  }
+  .tagline { font-size:13px; color:#A1A1AA; margin-top:2px; letter-spacing:0.02em; }
+
+  /* ===== 検索 ===== */
+  .search { position:relative; margin:20px 0 12px; }
+  .search input {
+    width:100%; border:none; outline:none; background:#FFFFFF;
+    border-radius:14px; padding:13px 42px 13px 42px;
+    font-size:16px; color:#18181B; font-family:inherit;
+    box-shadow:0 1px 2px rgba(24,24,27,0.04);
+  }
+  .search input::placeholder { color:#B4B4BB; }
+  .search .ico { position:absolute; left:15px; top:50%; transform:translateY(-50%);
+    width:17px; height:17px; color:#B4B4BB; }
+  .search .clear {
+    position:absolute; right:8px; top:50%; transform:translateY(-50%);
+    width:26px; height:26px; border:none; background:#E4E4E9; color:#71717A;
+    border-radius:50%; font-size:15px; line-height:1; cursor:pointer;
+    display:none; align-items:center; justify-content:center;
+  }
+  .search .clear.show { display:flex; }
+
+  /* ===== 並び替え＆フィルタ ===== */
+  .sortbar { display:flex; gap:7px; margin-bottom:12px; }
+  .seg {
+    flex:1; text-align:center; padding:9px 0; font-size:13px; font-weight:700;
+    color:#A1A1AA; background:#E9E9ED; border-radius:11px; cursor:pointer;
+    transition:all .15s; letter-spacing:0.02em; user-select:none;
+  }
+  .seg.on { color:#FFFFFF; background:#18181B; }
+
+  .filters { display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; margin-bottom:8px;
+    -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+  .filters::-webkit-scrollbar { display:none; }
+  .fchip {
+    flex:0 0 auto; padding:7px 14px; border-radius:20px; font-size:13px; font-weight:600;
+    background:#FFFFFF; color:#71717A; cursor:pointer; white-space:nowrap;
+    border:1.5px solid transparent; transition:all .15s; user-select:none;
+  }
+  .fchip.on { background:#18181B; color:#FFFFFF; }
+
+  /* ===== リスト ===== */
+  main { padding-bottom:130px; }
+  .grp-label {
+    font-size:12px; font-weight:700; color:#B4B4BB; letter-spacing:0.1em;
+    padding:16px 4px 8px; text-transform:uppercase;
+  }
+  .card {
+    background:#FFFFFF; border-radius:18px; padding:18px 18px 16px;
+    margin-bottom:11px; cursor:pointer;
+    box-shadow:0 1px 3px rgba(24,24,27,0.05);
+    transition:transform .12s;
+  }
+  .card:active { transform:scale(0.985); }
+  .card-top { display:flex; align-items:flex-start; gap:10px; }
+  .term {
+    font-size:22px; font-weight:800; color:#18181B; letter-spacing:-0.01em;
+    line-height:1.25; flex:1; min-width:0; word-break:break-word;
+  }
+  .chip {
+    flex:0 0 auto; font-size:11.5px; font-weight:700; padding:5px 11px;
+    border-radius:20px; letter-spacing:0.02em; margin-top:2px;
+  }
+  .reading { font-size:13px; color:#A1A1AA; margin-top:3px; letter-spacing:0.02em; word-break:break-word; }
+  .def {
+    font-size:14.5px; color:#52525B; line-height:1.65; margin-top:9px;
+    white-space:pre-wrap; word-break:break-word;
+  }
+
+  /* ===== 空 ===== */
+  .empty { text-align:center; padding:80px 30px; }
+  .empty .big { font-size:40px; font-weight:800; color:#DEDEE3; letter-spacing:-0.03em; margin-bottom:14px; }
+  .empty p { font-size:15px; color:#A1A1AA; line-height:1.8; }
+  .empty .sub { font-size:13px; color:#C4C4CB; margin-top:4px; }
+
+  /* ===== 追加ボタン ===== */
+  .fab {
+    position:fixed; right:20px; bottom:calc(env(safe-area-inset-bottom) + 24px);
+    width:58px; height:58px; border-radius:19px; background:#5B5BD6; color:#fff;
+    border:none; font-size:28px; font-weight:300; display:flex; align-items:center;
+    justify-content:center; box-shadow:0 10px 26px rgba(91,91,214,0.4);
+    cursor:pointer; z-index:50; transition:transform .12s;
+  }
+  .fab:active { transform:scale(0.9); }
+
+  /* ===== シート ===== */
+  .scrim { position:fixed; inset:0; background:rgba(24,24,27,0.35); opacity:0;
+    pointer-events:none; transition:opacity .25s; z-index:60; backdrop-filter:blur(3px); }
+  .scrim.show { opacity:1; pointer-events:auto; }
+  .sheet {
+    position:fixed; left:0; right:0; bottom:0; z-index:70; background:#F4F4F6;
+    border-radius:26px 26px 0 0; padding:8px 20px calc(env(safe-area-inset-bottom) + 22px);
+    transform:translateY(100%); transition:transform .32s cubic-bezier(.32,.72,0,1);
+    max-width:600px; margin:0 auto; max-height:93vh; overflow-y:auto;
+  }
+  .sheet.show { transform:translateY(0); }
+  .grip { width:38px; height:5px; border-radius:3px; background:#D4D4DA; margin:7px auto 20px; }
+  .sheet h2 { font-size:20px; font-weight:800; margin-bottom:22px; letter-spacing:-0.01em; }
+  .field { margin-bottom:15px; }
+  .field label { display:block; font-size:12px; color:#A1A1AA; font-weight:700;
+    letter-spacing:0.04em; margin-bottom:7px; }
+  .field input, .field textarea {
+    width:100%; border:none; background:#FFFFFF; border-radius:13px; padding:14px;
+    font-size:16px; color:#18181B; font-family:inherit; outline:none; resize:none;
+    box-shadow:inset 0 0 0 1.5px transparent;
+  }
+  .field input:focus, .field textarea:focus { box-shadow:inset 0 0 0 1.5px #5B5BD6; }
+  .field input.invalid, .field textarea.invalid { box-shadow:inset 0 0 0 1.5px #E5484D; }
+  .field .term-input { font-size:21px; font-weight:800; letter-spacing:-0.01em; }
+  .field textarea { min-height:92px; line-height:1.65; }
+  .preset { display:flex; gap:7px; flex-wrap:wrap; margin-top:9px; }
+  .ptag { font-size:12.5px; font-weight:600; padding:6px 12px; border-radius:16px;
+    background:#E9E9ED; color:#71717A; cursor:pointer; user-select:none; }
+  .ptag.on { background:#5B5BD6; color:#fff; }
+  .btn-row { display:flex; gap:9px; margin-top:10px; }
+  .btn { padding:15px 0; border-radius:14px; border:none; font-size:16px; font-weight:700;
+    font-family:inherit; cursor:pointer; }
+  .btn-save { flex:1; background:#5B5BD6; color:#fff; }
+  .btn-save:active { background:#4f4fc4; }
+  .btn-del { background:none; color:#E5484D; padding:15px 18px; }
+  .btn-cancel { background:#E4E4E9; color:#71717A; padding:15px 20px; }
+
+  /* ===== ダークモード ===== */
+  @media (prefers-color-scheme: dark) {
+    body { background:#0E0E11; color:#F4F4F5; }
+    #bgfill { background:#0E0E11; }
+    .brand h1 { color:#F4F4F5; }
+    .brand .dot { color:#8B8BF0; }
+    .brand .count, .tagline { color:#6B6B73; }
+    .search input { background:#1C1C20; color:#F4F4F5; box-shadow:none; }
+    .search input::placeholder, .search .ico { color:#56565E; }
+    .search .clear { background:#33333A; color:#A1A1AA; }
+    .seg { background:#1C1C20; color:#7E7E87; }
+    .seg.on { background:#F4F4F5; color:#0E0E11; }
+    .fchip { background:#1C1C20; color:#A1A1AA; }
+    .fchip.on { background:#F4F4F5; color:#0E0E11; }
+    .grp-label { color:#56565E; }
+    .card { background:#1A1A1E; box-shadow:none; }
+    .term { color:#F4F4F5; }
+    .reading { color:#7E7E87; }
+    .def { color:#B0B0B8; }
+    .empty .big { color:#2A2A30; }
+    .empty p { color:#6B6B73; }
+    .empty .sub { color:#46464D; }
+    .fab { background:#6E6EE6; box-shadow:0 10px 26px rgba(0,0,0,0.55); }
+    .scrim { background:rgba(0,0,0,0.6); }
+    .sheet { background:#161619; }
+    .grip { background:#3A3A42; }
+    .field label { color:#7E7E87; }
+    .field input, .field textarea { background:#1F1F24; color:#F4F4F5; }
+    .field input:focus, .field textarea:focus { box-shadow:inset 0 0 0 1.5px #8B8BF0; }
+    .ptag { background:#26262C; color:#A1A1AA; }
+    .ptag.on { background:#6E6EE6; color:#fff; }
+    .btn-save { background:#6E6EE6; }
+    .btn-cancel { background:#26262C; color:#A1A1AA; }
+    .btn-del { color:#FF6166; }
+  }
+</style>
+</head>
+<body>
+<div id="bgfill"></div>
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <h1>words<span class="dot">.</span></h1>
+      <span class="count" id="count"></span>
+    </div>
+    <div class="tagline">覚えたことばのストック</div>
+
+    <div class="search">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <input id="search" type="text" placeholder="ことば・意味でさがす" autocomplete="off">
+      <button class="clear" id="searchClear" type="button" aria-label="検索をクリア">×</button>
+    </div>
+    <div class="sortbar">
+      <div class="seg on" data-sort="recent">新しい順</div>
+      <div class="seg" data-sort="aiueo">名前順</div>
+    </div>
+    <div class="filters" id="filters"></div>
+  </header>
+
+  <main id="list"></main>
+</div>
+
+<button class="fab" id="addBtn" aria-label="ことばを追加">＋</button>
+
+<!-- シート -->
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true">
+  <div class="grip"></div>
+  <h2 id="sheetTitle">ことばを追加</h2>
+  <div class="field">
+    <label>ことば</label>
+    <input id="fWord" class="term-input" type="text" placeholder="例：アジェンダ" autocomplete="off" enterkeyhint="next">
+  </div>
+  <div class="field">
+    <label>よみ・英語（任意）</label>
+    <input id="fYomi" type="text" placeholder="例：agenda / 議題" autocomplete="off" enterkeyhint="next">
+  </div>
+  <div class="field">
+    <label>意味</label>
+    <textarea id="fMeaning" placeholder="例：会議で話し合うべき項目・議題のこと。"></textarea>
+  </div>
+  <div class="field">
+    <label>カテゴリ（任意）</label>
+    <input id="fTag" type="text" placeholder="例：ビジネス" autocomplete="off" enterkeyhint="done">
+    <div class="preset" id="presetTags"></div>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-cancel" id="cancelBtn">閉じる</button>
+    <button class="btn btn-del" id="delBtn" style="display:none">削除</button>
+    <button class="btn btn-save" id="saveBtn">保存</button>
+  </div>
+</div>
+
+<script>
+  const KEY = 'kotoba_app_v1';
+  let words = [];
+  let sortMode = 'recent';
+  let activeFilter = null;
+  let editId = null;
+
+  // チップ配色（カテゴリ名から決定）
+  const CHIP_COLORS = [
+    ['#ECECFB','#5B5BD6'],['#E4F5EE','#0E9F6E'],['#FCF1DD','#B4690E'],
+    ['#FCE9EE','#D6336C'],['#E4F1FB','#2476C9'],['#F3E8FB','#8B4FCE'],['#EAEEF2','#5A6472']
+  ];
+  const CHIP_COLORS_DARK = [
+    ['#26264A','#A6A6F5'],['#16352B','#3FD9A0'],['#3A2C14','#E0A24E'],
+    ['#3A1E29','#F07AA3'],['#152C44','#6BB2F0'],['#2E1F40','#C190EE'],['#262A30','#9AA6B2']
+  ];
+  function isDark(){ return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; }
+  function chipColor(tag){
+    let h=0; for(let i=0;i<tag.length;i++) h=(h+tag.charCodeAt(i))%CHIP_COLORS.length;
+    return (isDark()?CHIP_COLORS_DARK:CHIP_COLORS)[h];
+  }
+
+  const PRESETS = ['ビジネス','IT・DX','マーケ','日常','英語'];
+
+  function load(){ try{ words=JSON.parse(localStorage.getItem(KEY))||[]; if(!Array.isArray(words)) words=[]; }catch(e){ words=[]; } }
+  function save(){
+    try{ localStorage.setItem(KEY, JSON.stringify(words)); }
+    catch(e){ alert('保存できませんでした。ブラウザの空き容量やプライベートモードをご確認ください。'); }
+  }
+
+  // 名前順用キー（カタカナ→ひらがな）
+  function toHira(s){ return (s||'').replace(/[ァ-ヶ]/g,c=>String.fromCharCode(c.charCodeAt(0)-0x60)); }
+  function sortKey(w){ return toHira((w.yomi || w.word || '')).trim(); }
+
+  // ===== グループ分け =====
+  const KANA_ROWS={
+    'あ':'あいうえおぁぃぅぇぉゔ','か':'かきくけこがぎぐげご','さ':'さしすせそざじずぜぞ',
+    'た':'たちつてとだぢづでどっ','な':'なにぬねの','は':'はひふへほばびぶべぼぱぴぷぺぽ',
+    'ま':'まみむめも','や':'やゆよゃゅょ','ら':'らりるれろ','わ':'わをんゎ'
+  };
+  function kanaRow(ch){ for(const r in KANA_ROWS){ if(KANA_ROWS[r].includes(ch)) return r; } return null; }
+  function kanaGroup(w){
+    const ch=sortKey(w).charAt(0);
+    if(!ch) return '#';
+    const row=kanaRow(ch);
+    if(row) return row;
+    if(/[a-z]/i.test(ch)) return ch.toUpperCase();
+    return '#';
+  }
+  function dateGroup(ts){
+    const now=new Date(); const d=new Date(ts);
+    const sot=new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();
+    const day=86400000;
+    if(ts>=sot) return '今日';
+    if(ts>=sot-day) return '昨日';
+    if(ts>=sot-6*day) return '今週';
+    if(ts>=sot-29*day) return '今月';
+    return d.getFullYear()+'年';
+  }
+  function groupOf(w){ return sortMode==='aiueo' ? kanaGroup(w) : dateGroup(w.created); }
+
+  const listEl = document.getElementById('list');
+  const countEl = document.getElementById('count');
+  const filtersEl = document.getElementById('filters');
+  const searchEl = document.getElementById('search');
+  const searchClear = document.getElementById('searchClear');
+
+  function allTags(){
+    const set = new Set();
+    words.forEach(w => { if(w.tag) set.add(w.tag); });
+    return [...set];
+  }
+
+  function renderFilters(){
+    const tags = allTags();
+    if(tags.length === 0){ filtersEl.innerHTML=''; return; }
+    let html = `<div class="fchip ${activeFilter===null?'on':''}" data-f="">すべて</div>`;
+    tags.forEach(t => {
+      html += `<div class="fchip ${activeFilter===t?'on':''}" data-f="${escape(t)}">${escape(t)}</div>`;
+    });
+    filtersEl.innerHTML = html;
+    filtersEl.querySelectorAll('.fchip').forEach(c => {
+      c.addEventListener('click', () => {
+        const v = c.dataset.f;
+        activeFilter = v === '' ? null : v;
+        renderFilters(); render();
+      });
+    });
+  }
+
+  function render(){
+    const q = searchEl.value.trim().toLowerCase();
+    searchClear.classList.toggle('show', searchEl.value.length>0);
+
+    let items = words.filter(w => {
+      if(activeFilter && w.tag !== activeFilter) return false;
+      if(!q) return true;
+      return (w.word+' '+(w.yomi||'')+' '+w.meaning+' '+(w.tag||'')).toLowerCase().includes(q);
+    });
+
+    countEl.textContent = words.length
+      ? (items.length===words.length ? items.length : items.length+' / '+words.length) + (words.length===1?' word':' words')
+      : '';
+
+    if(items.length === 0){
+      listEl.innerHTML = words.length === 0
+        ? `<div class="empty"><div class="big">words.</div><p>最初のことばを追加しましょう。</p><p class="sub">右下の ＋ から登録できます。</p></div>`
+        : `<div class="empty"><div class="big">—</div><p>見つかりませんでした。</p></div>`;
+      return;
+    }
+
+    if(sortMode === 'aiueo') items.sort((a,b)=>{
+      const r=sortKey(a).localeCompare(sortKey(b),'ja');
+      return r!==0 ? r : b.created-a.created;
+    });
+    else items.sort((a,b)=>b.created-a.created);
+
+    let html='', curG=null;
+    items.forEach(w=>{
+      const g=groupOf(w);
+      if(g!==curG){ curG=g; html+=`<div class="grp-label">${escape(g)}</div>`; }
+      html+=cardHTML(w);
+    });
+    listEl.innerHTML = html;
+    listEl.querySelectorAll('.card').forEach(el=>{
+      el.addEventListener('click',()=>openEdit(el.dataset.id));
+    });
+  }
+
+  function cardHTML(w){
+    let chip = '';
+    if(w.tag){ const [bg,fg]=chipColor(w.tag);
+      chip = `<span class="chip" style="background:${bg};color:${fg}">${escape(w.tag)}</span>`; }
+    const reading = w.yomi ? `<div class="reading">${escape(w.yomi)}</div>` : '';
+    return `<div class="card" data-id="${escape(w.id)}">
+      <div class="card-top"><div class="term">${escape(w.word)}</div>${chip}</div>
+      ${reading}
+      <div class="def">${escape(w.meaning)}</div>
+    </div>`;
+  }
+
+  function escape(s){ return (s==null?'':String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  // ===== シート =====
+  const scrim=document.getElementById('scrim'), sheet=document.getElementById('sheet');
+  const fWord=document.getElementById('fWord'), fYomi=document.getElementById('fYomi');
+  const fMeaning=document.getElementById('fMeaning'), fTag=document.getElementById('fTag');
+  const delBtn=document.getElementById('delBtn');
+  let sheetOpen=false;
+
+  function syncPresetState(){
+    const v=fTag.value.trim();
+    document.querySelectorAll('.ptag').forEach(t=>t.classList.toggle('on', t.dataset.t===v));
+  }
+  function renderPresets(){
+    document.getElementById('presetTags').innerHTML =
+      PRESETS.map(p=>`<span class="ptag" data-t="${escape(p)}">${escape(p)}</span>`).join('');
+    document.querySelectorAll('.ptag').forEach(t=>{
+      t.addEventListener('click',()=>{
+        // 同じものを再タップで解除
+        fTag.value = (fTag.value.trim()===t.dataset.t) ? '' : t.dataset.t;
+        syncPresetState();
+      });
+    });
+  }
+
+  function openSheet(){ scrim.classList.add('show'); sheet.classList.add('show'); sheetOpen=true; }
+  function closeSheet(){
+    scrim.classList.remove('show'); sheet.classList.remove('show'); sheetOpen=false;
+    document.activeElement && document.activeElement.blur();
+    [fWord,fMeaning].forEach(el=>el.classList.remove('invalid'));
+  }
+
+  function openAdd(){
+    editId=null;
+    document.getElementById('sheetTitle').textContent='ことばを追加';
+    fWord.value=''; fYomi.value=''; fMeaning.value=''; fTag.value='';
+    [fWord,fMeaning].forEach(el=>el.classList.remove('invalid'));
+    delBtn.style.display='none';
+    syncPresetState();
+    openSheet(); setTimeout(()=>fWord.focus(),300);
+  }
+  function openEdit(id){
+    const w=words.find(x=>x.id===id); if(!w) return;
+    editId=id;
+    document.getElementById('sheetTitle').textContent='ことばを編集';
+    fWord.value=w.word; fYomi.value=w.yomi||''; fMeaning.value=w.meaning; fTag.value=w.tag||'';
+    [fWord,fMeaning].forEach(el=>el.classList.remove('invalid'));
+    delBtn.style.display='block';
+    syncPresetState();
+    openSheet();
+  }
+  function doSave(){
+    const word=fWord.value.trim(), meaning=fMeaning.value.trim();
+    fWord.classList.toggle('invalid', !word);
+    fMeaning.classList.toggle('invalid', !meaning);
+    if(!word||!meaning){ (!word?fWord:fMeaning).focus(); return; }
+    const yomi=fYomi.value.trim(), tag=fTag.value.trim();
+    if(editId){ const w=words.find(x=>x.id===editId);
+      if(w){ w.word=word; w.yomi=yomi; w.meaning=meaning; w.tag=tag; } }
+    else { words.push({ id:'w'+Date.now()+Math.random().toString(36).slice(2,6),
+      word, yomi, meaning, tag, created:Date.now() }); }
+    if(activeFilter && !words.some(w=>w.tag===activeFilter)) activeFilter=null;
+    save(); renderFilters(); render(); closeSheet();
+  }
+  function doDelete(){
+    if(!editId) return;
+    if(confirm('このことばを削除しますか？')){
+      words=words.filter(x=>x.id!==editId);
+      if(activeFilter && !words.some(w=>w.tag===activeFilter)) activeFilter=null;
+      save(); renderFilters(); render(); closeSheet();
+    }
+  }
+
+  document.getElementById('addBtn').addEventListener('click',openAdd);
+  document.getElementById('cancelBtn').addEventListener('click',closeSheet);
+  scrim.addEventListener('click',closeSheet);
+  document.getElementById('saveBtn').addEventListener('click',doSave);
+  delBtn.addEventListener('click',doDelete);
+  searchEl.addEventListener('input',render);
+  searchClear.addEventListener('click',()=>{ searchEl.value=''; searchEl.focus(); render(); });
+  fTag.addEventListener('input',syncPresetState);
+
+  // Enterキーで保存（テキストエリアは改行を許可）
+  [fWord,fYomi,fTag].forEach(el=>{
+    el.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); doSave(); } });
+  });
+  // Escでシートを閉じる
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape' && sheetOpen) closeSheet(); });
+
+  document.querySelectorAll('.seg').forEach(seg=>{
+    seg.addEventListener('click',()=>{
+      if(seg.classList.contains('on')) return;
+      document.querySelectorAll('.seg').forEach(s=>s.classList.remove('on'));
+      seg.classList.add('on'); sortMode=seg.dataset.sort; render();
+    });
+  });
+
+  // ダーク／ライト切替時にチップ配色を更新
+  if(window.matchMedia){
+    const mq=window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange=()=>render();
+    mq.addEventListener ? mq.addEventListener('change',onChange) : mq.addListener(onChange);
+  }
+
+  // 別タブでの更新を反映
+  window.addEventListener('storage',e=>{ if(e.key===KEY){ load(); renderFilters(); render(); } });
+
+  load(); renderPresets(); renderFilters(); render();
+</script>
+</body>
+</html>
