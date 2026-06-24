@@ -75,13 +75,17 @@
     font-size:12px; font-weight:700; color:#B4B4BB; letter-spacing:0.1em;
     padding:16px 4px 8px; text-transform:uppercase;
   }
-  .card {
-    background:#FFFFFF; border-radius:18px; padding:18px 18px 16px;
-    margin-bottom:11px; cursor:pointer;
-    box-shadow:0 1px 3px rgba(24,24,27,0.05);
-    transition:transform .12s;
+  .swipe { position:relative; margin-bottom:11px; border-radius:18px; overflow:hidden; }
+  .swipe-action { position:absolute; inset:0; display:flex; justify-content:flex-end; }
+  .swipe-del {
+    width:84px; border:none; background:#E5484D; color:#fff; font-size:15px; font-weight:700;
+    font-family:inherit; cursor:pointer; letter-spacing:0.02em;
   }
-  .card:active { transform:scale(0.985); }
+  .card {
+    position:relative; background:#FFFFFF; border-radius:18px; padding:18px 18px 16px;
+    cursor:pointer; box-shadow:0 1px 3px rgba(24,24,27,0.05);
+    transition:transform .2s; touch-action:pan-y; will-change:transform;
+  }
   .card-top { display:flex; align-items:flex-start; gap:10px; }
   .term {
     font-size:22px; font-weight:800; color:#18181B; letter-spacing:-0.01em;
@@ -112,6 +116,22 @@
     cursor:pointer; z-index:50; transition:transform .12s;
   }
   .fab:active { transform:scale(0.9); }
+
+  /* ===== トースト（Undo） ===== */
+  .toast {
+    position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom) + 92px);
+    transform:translate(-50%,150%); z-index:80; display:flex; align-items:center; gap:16px;
+    background:#18181B; color:#F4F4F5; padding:13px 16px 13px 18px; border-radius:14px;
+    box-shadow:0 10px 30px rgba(24,24,27,0.28); opacity:0; pointer-events:none;
+    transition:transform .3s cubic-bezier(.32,.72,0,1), opacity .3s;
+    max-width:calc(100% - 36px); font-size:14px; font-weight:600;
+  }
+  .toast.show { transform:translate(-50%,0); opacity:1; pointer-events:auto; }
+  .toast span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .toast button {
+    background:none; border:none; color:#8B8BF0; font-family:inherit; font-size:14px;
+    font-weight:700; cursor:pointer; white-space:nowrap; flex:0 0 auto; padding:2px 2px;
+  }
 
   /* ===== シート ===== */
   .scrim { position:fixed; inset:0; background:rgba(24,24,27,0.35); opacity:0;
@@ -166,6 +186,7 @@
     .fchip.on { background:#F4F4F5; color:#0E0E11; }
     .grp-label { color:#56565E; }
     .card { background:#1A1A1E; box-shadow:none; }
+    .toast { background:#2A2A30; box-shadow:0 10px 30px rgba(0,0,0,0.5); }
     .term { color:#F4F4F5; }
     .reading { color:#7E7E87; }
     .def { color:#B0B0B8; }
@@ -214,6 +235,12 @@
 </div>
 
 <button class="fab" id="addBtn" aria-label="ことばを追加">＋</button>
+
+<!-- Undoトースト -->
+<div class="toast" id="toast" role="status" aria-live="polite">
+  <span id="toastMsg"></span>
+  <button id="undoBtn" type="button">元に戻す</button>
+</div>
 
 <!-- シート -->
 <div class="scrim" id="scrim"></div>
@@ -335,6 +362,7 @@
   }
 
   function render(){
+    openSwipe = null;
     const q = searchEl.value.trim().toLowerCase();
     searchClear.classList.toggle('show', searchEl.value.length>0);
 
@@ -369,7 +397,73 @@
     });
     listEl.innerHTML = html;
     listEl.querySelectorAll('.card').forEach(el=>{
-      el.addEventListener('click',()=>openEdit(el.dataset.id));
+      attachSwipe(el);
+      el.addEventListener('click',()=>{
+        if(openSwipe===el){ closeSwipe(el); delete el.dataset.moved; return; }
+        if(el.dataset.moved){ delete el.dataset.moved; return; }
+        openEdit(el.dataset.id);
+      });
+    });
+    listEl.querySelectorAll('.swipe-del').forEach(b=>{
+      b.addEventListener('click',e=>{ e.stopPropagation(); requestDelete(b.dataset.id); });
+    });
+  }
+
+  // ===== スワイプ操作 =====
+  let openSwipe = null;
+  const SWIPE_OPEN = -84;
+  function closeSwipe(card){
+    if(card){ card.style.transition='transform .2s'; card.style.transform='translateX(0)'; }
+    if(openSwipe===card) openSwipe=null;
+  }
+  function attachSwipe(card){
+    let startX=0,startY=0,dx=0,dragging=false,decided=false,horizontal=false;
+    function start(x,y){
+      if(openSwipe&&openSwipe!==card) closeSwipe(openSwipe);
+      delete card.dataset.moved;
+      startX=x; startY=y; dx=(openSwipe===card?SWIPE_OPEN:0);
+      dragging=true; decided=false; horizontal=false; card.style.transition='none';
+    }
+    function move(x,y){
+      if(!dragging) return false;
+      const mx=x-startX, my=y-startY;
+      if(!decided){
+        if(Math.abs(mx)>8||Math.abs(my)>8){ decided=true; horizontal=Math.abs(mx)>Math.abs(my); }
+        else return false;
+      }
+      if(!horizontal){ // 縦スクロール優先：スワイプ中断
+        dragging=false; card.style.transition='transform .2s';
+        card.style.transform='translateX('+(openSwipe===card?SWIPE_OPEN:0)+'px)';
+        return false;
+      }
+      card.dataset.moved='1';
+      const base=(openSwipe===card?SWIPE_OPEN:0);
+      dx=Math.max(-120, Math.min(0, base+mx));
+      card.style.transform='translateX('+dx+'px)';
+      return true;
+    }
+    function end(){
+      if(!dragging) return; dragging=false;
+      card.style.transition='transform .2s';
+      if(dx < -110){ // 大きくスワイプ＝即削除
+        card.style.transform='translateX(-100%)';
+        const id=card.dataset.id;
+        setTimeout(()=>requestDelete(id),160);
+      } else if(dx < -42){
+        card.style.transform='translateX('+SWIPE_OPEN+'px)'; openSwipe=card;
+      } else {
+        card.style.transform='translateX(0)'; if(openSwipe===card) openSwipe=null;
+      }
+    }
+    card.addEventListener('touchstart',e=>start(e.touches[0].clientX,e.touches[0].clientY),{passive:true});
+    card.addEventListener('touchmove',e=>move(e.touches[0].clientX,e.touches[0].clientY),{passive:true});
+    card.addEventListener('touchend',end);
+    card.addEventListener('touchcancel',end);
+    card.addEventListener('mousedown',e=>{
+      start(e.clientX,e.clientY);
+      const mm=ev=>move(ev.clientX,ev.clientY);
+      const mu=()=>{ end(); document.removeEventListener('mousemove',mm); document.removeEventListener('mouseup',mu); };
+      document.addEventListener('mousemove',mm); document.addEventListener('mouseup',mu);
     });
   }
 
@@ -378,10 +472,14 @@
     if(w.tag){ const [bg,fg]=chipColor(w.tag);
       chip = `<span class="chip" style="background:${bg};color:${fg}">${escape(w.tag)}</span>`; }
     const reading = w.yomi ? `<div class="reading">${escape(w.yomi)}</div>` : '';
-    return `<div class="card" data-id="${escape(w.id)}">
-      <div class="card-top"><div class="term">${escape(w.word)}</div>${chip}</div>
-      ${reading}
-      <div class="def">${escape(w.meaning)}</div>
+    const id = escape(w.id);
+    return `<div class="swipe">
+      <div class="swipe-action"><button class="swipe-del" type="button" data-id="${id}" aria-label="削除">削除</button></div>
+      <div class="card" data-id="${id}">
+        <div class="card-top"><div class="term">${escape(w.word)}</div>${chip}</div>
+        ${reading}
+        <div class="def">${escape(w.meaning)}</div>
+      </div>
     </div>`;
   }
 
@@ -451,11 +549,35 @@
   }
   function doDelete(){
     if(!editId) return;
-    if(confirm('このことばを削除しますか？')){
-      words=words.filter(x=>x.id!==editId);
-      if(activeFilter && !words.some(w=>w.tag===activeFilter)) activeFilter=null;
-      save(); renderFilters(); render(); closeSheet();
-    }
+    const id=editId;
+    closeSheet();
+    requestDelete(id);
+  }
+
+  // ===== 削除 ＋ Undo =====
+  const toast=document.getElementById('toast');
+  const toastMsg=document.getElementById('toastMsg');
+  let pendingDelete=null, undoTimer=null;
+  function requestDelete(id){
+    const idx=words.findIndex(x=>x.id===id);
+    if(idx<0) return;
+    const removed=words[idx];
+    words.splice(idx,1);
+    if(activeFilter && !words.some(w=>w.tag===activeFilter)) activeFilter=null;
+    save(); renderFilters(); render();
+    pendingDelete={item:removed, idx};
+    toastMsg.textContent='「'+removed.word+'」を削除しました';
+    toast.classList.add('show');
+    clearTimeout(undoTimer);
+    undoTimer=setTimeout(hideUndo, 4500);
+  }
+  function hideUndo(){ toast.classList.remove('show'); pendingDelete=null; clearTimeout(undoTimer); }
+  function doUndo(){
+    if(!pendingDelete) return;
+    const {item,idx}=pendingDelete;
+    words.splice(Math.min(idx, words.length), 0, item);
+    save(); renderFilters(); render();
+    hideUndo();
   }
 
   document.getElementById('addBtn').addEventListener('click',openAdd);
@@ -463,6 +585,7 @@
   scrim.addEventListener('click',closeSheet);
   document.getElementById('saveBtn').addEventListener('click',doSave);
   delBtn.addEventListener('click',doDelete);
+  document.getElementById('undoBtn').addEventListener('click',doUndo);
   searchEl.addEventListener('input',render);
   searchClear.addEventListener('click',()=>{ searchEl.value=''; searchEl.focus(); render(); });
   fTag.addEventListener('input',syncPresetState);
