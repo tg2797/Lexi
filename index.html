@@ -309,7 +309,17 @@
   <div class="field">
     <label>Anthropic APIキー</label>
     <input id="fKey" type="password" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
+    <div class="preset"><span class="ptag" id="keyReveal">表示</span></div>
     <div class="hint">「ことば」だけ入力して <b>✨ AIで意味を調べる</b> を使うためのキーです。キーはこの端末のブラウザにのみ保存され、Claude API 以外には送信されません。発行は <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a> から。共有端末では使用しないでください。</div>
+  </div>
+  <div class="field">
+    <label>バックアップ</label>
+    <div class="btn-row">
+      <button class="btn btn-cancel" id="exportBtn" type="button" style="flex:1">書き出す</button>
+      <button class="btn btn-cancel" id="importBtn" type="button" style="flex:1">読み込む</button>
+    </div>
+    <input id="importFile" type="file" accept="application/json,.json" style="display:none">
+    <div class="hint">ことばのデータをファイルに保存／復元できます。端末を変えるときや、ホーム画面アプリを入れ直す前に必ず「書き出す」でバックアップしてください。読み込みは今のデータに追加されます（重複は自動でスキップ）。</div>
   </div>
   <div class="btn-row">
     <button class="btn btn-cancel" id="settingsClose">閉じる</button>
@@ -570,13 +580,52 @@
     [fWord,fMeaning].forEach(el=>el.classList.remove('invalid'));
   }
   function openSettingsSheet(){
-    fKey.value=getApiKey();
+    fKey.value=getApiKey(); fKey.type='password';
+    document.getElementById('keyReveal').textContent='表示';
     document.getElementById('keyClear').style.display=getApiKey()?'block':'none';
     scrim.classList.add('show'); settingsSheet.classList.add('show'); settingsOpen=true;
   }
   function closeSettingsSheet(){
     settingsSheet.classList.remove('show'); settingsOpen=false; maybeHideScrim();
     document.activeElement && document.activeElement.blur();
+  }
+
+  // ===== バックアップ（書き出し / 読み込み） =====
+  function doExport(){
+    if(words.length===0){ alert('書き出すことばがありません。'); return; }
+    const payload={ app:'words', version:1, exportedAt:new Date().toISOString(), words:words };
+    const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const d=new Date(), p=n=>String(n).padStart(2,'0');
+    const a=document.createElement('a');
+    a.href=url; a.download=`words-backup-${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }
+  function doImport(file){
+    if(!file) return;
+    const reader=new FileReader();
+    reader.onload=()=>{
+      try{
+        const data=JSON.parse(reader.result);
+        const arr=Array.isArray(data)?data:(data&&Array.isArray(data.words)?data.words:null);
+        if(!arr) throw new Error('ファイルの形式が違います。');
+        const ids=new Set(words.map(w=>w.id));
+        let added=0;
+        arr.forEach(w=>{
+          if(!w||!w.word||!w.meaning) return;
+          let id=w.id||('w'+Date.now()+Math.random().toString(36).slice(2,6));
+          if(ids.has(id)) return;
+          words.push({ id, word:String(w.word), yomi:w.yomi?String(w.yomi):'',
+            meaning:String(w.meaning), tag:w.tag?String(w.tag):'', created:w.created||Date.now() });
+          ids.add(id); added++;
+        });
+        save(); renderFilters(); render();
+        alert(added+'件を読み込みました。'+(added<arr.length?'（重複などは除外）':''));
+        closeSettingsSheet();
+      }catch(e){ alert('読み込めませんでした。\n'+((e&&e.message)||e)); }
+    };
+    reader.readAsText(file);
   }
 
   // ===== AIで意味を調べる =====
@@ -708,6 +757,12 @@
   document.getElementById('settingsClose').addEventListener('click',closeSettingsSheet);
   document.getElementById('keySave').addEventListener('click',()=>{ setApiKey(fKey.value.trim()); closeSettingsSheet(); });
   document.getElementById('keyClear').addEventListener('click',()=>{ setApiKey(''); fKey.value=''; closeSettingsSheet(); });
+  document.getElementById('keyReveal').addEventListener('click',e=>{
+    const show=fKey.type==='password'; fKey.type=show?'text':'password'; e.target.textContent=show?'隠す':'表示';
+  });
+  document.getElementById('exportBtn').addEventListener('click',doExport);
+  document.getElementById('importBtn').addEventListener('click',()=>document.getElementById('importFile').click());
+  document.getElementById('importFile').addEventListener('change',e=>{ doImport(e.target.files[0]); e.target.value=''; });
   searchEl.addEventListener('input',render);
   searchClear.addEventListener('click',()=>{ searchEl.value=''; searchEl.focus(); render(); });
   fTag.addEventListener('input',syncPresetState);
