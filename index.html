@@ -176,6 +176,21 @@
   .btn-del { background:none; color:#E5484D; padding:15px 18px; }
   .btn-cancel { background:#E4E4E9; color:#71717A; padding:15px 20px; }
 
+  /* ===== 設定ボタン / AIボタン ===== */
+  .iconbtn { background:none; border:none; padding:6px; margin-left:12px; color:#A1A1AA;
+    cursor:pointer; display:flex; align-items:center; align-self:center; }
+  .iconbtn svg { width:21px; height:21px; }
+  .iconbtn:active { color:#5B5BD6; }
+  .btn-ai {
+    width:100%; margin-top:9px; padding:12px 0; border-radius:12px; border:none;
+    background:#ECECFB; color:#5B5BD6; font-size:14.5px; font-weight:700; font-family:inherit;
+    cursor:pointer; display:flex; align-items:center; justify-content:center; gap:7px;
+  }
+  .btn-ai:disabled { opacity:.55; cursor:default; }
+  .btn-ai:active { background:#E0E0F8; }
+  .hint { font-size:12px; color:#A1A1AA; line-height:1.7; margin-top:8px; }
+  .hint a { color:#5B5BD6; }
+
   /* ===== ダークモード ===== */
   @media (prefers-color-scheme: dark) {
     body { background:#0E0E11; color:#F4F4F5; }
@@ -193,6 +208,12 @@
     .grp-label { color:#56565E; }
     .card { background:#1A1A1E; box-shadow:none; }
     .toast { background:#2A2A30; box-shadow:0 10px 30px rgba(0,0,0,0.5); }
+    .iconbtn { color:#7E7E87; }
+    .iconbtn:active { color:#8B8BF0; }
+    .btn-ai { background:#26264A; color:#A6A6F5; }
+    .btn-ai:active { background:#30305A; }
+    .hint { color:#6B6B73; }
+    .hint a { color:#8B8BF0; }
     .term { color:#F4F4F5; }
     .reading { color:#7E7E87; }
     .def { color:#B0B0B8; }
@@ -222,6 +243,9 @@
     <div class="brand">
       <h1>words<span class="dot">.</span></h1>
       <span class="count" id="count"></span>
+      <button class="iconbtn" id="settingsBtn" type="button" aria-label="設定">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
     </div>
     <div class="tagline">覚えたことばのストック</div>
 
@@ -256,6 +280,7 @@
   <div class="field">
     <label>ことば</label>
     <input id="fWord" class="term-input" type="text" placeholder="例：アジェンダ" autocomplete="off" enterkeyhint="next">
+    <button class="btn-ai" id="aiBtn" type="button">✨ AIで意味を調べる</button>
   </div>
   <div class="field">
     <label>よみ・英語（任意）</label>
@@ -274,6 +299,22 @@
     <button class="btn btn-cancel" id="cancelBtn">閉じる</button>
     <button class="btn btn-del" id="delBtn" style="display:none">削除</button>
     <button class="btn btn-save" id="saveBtn">保存</button>
+  </div>
+</div>
+
+<!-- 設定シート -->
+<div class="sheet" id="settingsSheet" role="dialog" aria-modal="true">
+  <div class="grip"></div>
+  <h2>設定</h2>
+  <div class="field">
+    <label>Anthropic APIキー</label>
+    <input id="fKey" type="password" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
+    <div class="hint">「ことば」だけ入力して <b>✨ AIで意味を調べる</b> を使うためのキーです。キーはこの端末のブラウザにのみ保存され、Claude API 以外には送信されません。発行は <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a> から。共有端末では使用しないでください。</div>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-cancel" id="settingsClose">閉じる</button>
+    <button class="btn btn-del" id="keyClear" style="display:none">削除</button>
+    <button class="btn btn-save" id="keySave">保存</button>
   </div>
 </div>
 
@@ -493,10 +534,17 @@
 
   // ===== シート =====
   const scrim=document.getElementById('scrim'), sheet=document.getElementById('sheet');
+  const settingsSheet=document.getElementById('settingsSheet');
   const fWord=document.getElementById('fWord'), fYomi=document.getElementById('fYomi');
   const fMeaning=document.getElementById('fMeaning'), fTag=document.getElementById('fTag');
+  const fKey=document.getElementById('fKey'), aiBtn=document.getElementById('aiBtn');
   const delBtn=document.getElementById('delBtn');
-  let sheetOpen=false;
+  let sheetOpen=false, settingsOpen=false;
+
+  // ===== APIキー =====
+  const KEY_API='kotoba_api_key';
+  function getApiKey(){ try{ return localStorage.getItem(KEY_API)||''; }catch(e){ return ''; } }
+  function setApiKey(v){ try{ if(v) localStorage.setItem(KEY_API, v); else localStorage.removeItem(KEY_API); }catch(e){} }
 
   function syncPresetState(){
     const v=fTag.value.trim();
@@ -514,11 +562,74 @@
     });
   }
 
+  function maybeHideScrim(){ if(!sheetOpen && !settingsOpen) scrim.classList.remove('show'); }
   function openSheet(){ scrim.classList.add('show'); sheet.classList.add('show'); sheetOpen=true; }
   function closeSheet(){
-    scrim.classList.remove('show'); sheet.classList.remove('show'); sheetOpen=false;
+    sheet.classList.remove('show'); sheetOpen=false; maybeHideScrim();
     document.activeElement && document.activeElement.blur();
     [fWord,fMeaning].forEach(el=>el.classList.remove('invalid'));
+  }
+  function openSettingsSheet(){
+    fKey.value=getApiKey();
+    document.getElementById('keyClear').style.display=getApiKey()?'block':'none';
+    scrim.classList.add('show'); settingsSheet.classList.add('show'); settingsOpen=true;
+  }
+  function closeSettingsSheet(){
+    settingsSheet.classList.remove('show'); settingsOpen=false; maybeHideScrim();
+    document.activeElement && document.activeElement.blur();
+  }
+
+  // ===== AIで意味を調べる =====
+  async function doAILookup(){
+    const word=fWord.value.trim();
+    if(!word){ fWord.classList.add('invalid'); fWord.focus(); return; }
+    const key=getApiKey();
+    if(!key){ alert('先に設定（右上の歯車）でAPIキーを登録してください。'); openSettingsSheet(); return; }
+    const orig=aiBtn.innerHTML;
+    aiBtn.disabled=true; aiBtn.textContent='調べています…';
+    try{
+      const res=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{
+          'content-type':'application/json',
+          'x-api-key':key,
+          'anthropic-version':'2023-06-01',
+          'anthropic-dangerous-direct-browser-access':'true'
+        },
+        body:JSON.stringify({
+          model:'claude-opus-4-8',
+          max_tokens:1024,
+          system:`あなたは日本語の語彙辞典です。与えられた「ことば」について JSON で答えます。meaning は意味を日本語で簡潔に1〜3文で。yomi は読み方をひらがなで（外来語・アルファベットの語は読みや対応する英語を入れる）。tag は最も近いカテゴリを次から1つ選ぶ：${PRESETS.join('、')}。どれにも当てはまらなければ短い言葉で表す。`,
+          messages:[{role:'user',content:word}],
+          output_config:{format:{type:'json_schema',schema:{
+            type:'object',
+            properties:{ yomi:{type:'string'}, meaning:{type:'string'}, tag:{type:'string'} },
+            required:['yomi','meaning','tag'],
+            additionalProperties:false
+          }}}
+        })
+      });
+      if(!res.ok){
+        let msg='エラー ('+res.status+')';
+        try{ const e=await res.json(); if(e.error&&e.error.message) msg=e.error.message; }catch(_){}
+        if(res.status===401) msg='APIキーが正しくありません。設定を確認してください。';
+        else if(res.status===429) msg='レート制限です。少し待って再度お試しください。';
+        throw new Error(msg);
+      }
+      const data=await res.json();
+      if(data.stop_reason==='refusal') throw new Error('この語は回答できませんでした。');
+      const block=(data.content||[]).find(b=>b.type==='text');
+      if(!block) throw new Error('応答を取得できませんでした。');
+      const out=JSON.parse(block.text);
+      if(out.meaning) fMeaning.value=out.meaning;
+      if(out.yomi) fYomi.value=out.yomi;
+      if(out.tag && !fTag.value.trim()){ fTag.value=out.tag; syncPresetState(); }
+      [fWord,fMeaning].forEach(el=>el.classList.remove('invalid'));
+    }catch(err){
+      alert('AIで調べられませんでした。\n'+((err&&err.message)||err));
+    }finally{
+      aiBtn.disabled=false; aiBtn.innerHTML=orig;
+    }
   }
 
   function openAdd(){
@@ -588,10 +699,15 @@
 
   document.getElementById('addBtn').addEventListener('click',openAdd);
   document.getElementById('cancelBtn').addEventListener('click',closeSheet);
-  scrim.addEventListener('click',closeSheet);
+  scrim.addEventListener('click',()=>{ closeSheet(); closeSettingsSheet(); });
   document.getElementById('saveBtn').addEventListener('click',doSave);
   delBtn.addEventListener('click',doDelete);
   document.getElementById('undoBtn').addEventListener('click',doUndo);
+  aiBtn.addEventListener('click',doAILookup);
+  document.getElementById('settingsBtn').addEventListener('click',openSettingsSheet);
+  document.getElementById('settingsClose').addEventListener('click',closeSettingsSheet);
+  document.getElementById('keySave').addEventListener('click',()=>{ setApiKey(fKey.value.trim()); closeSettingsSheet(); });
+  document.getElementById('keyClear').addEventListener('click',()=>{ setApiKey(''); fKey.value=''; closeSettingsSheet(); });
   searchEl.addEventListener('input',render);
   searchClear.addEventListener('click',()=>{ searchEl.value=''; searchEl.focus(); render(); });
   fTag.addEventListener('input',syncPresetState);
@@ -601,7 +717,7 @@
     el.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); doSave(); } });
   });
   // Escでシートを閉じる
-  document.addEventListener('keydown',e=>{ if(e.key==='Escape' && sheetOpen) closeSheet(); });
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ if(sheetOpen) closeSheet(); if(settingsOpen) closeSettingsSheet(); } });
 
   document.querySelectorAll('.seg').forEach(seg=>{
     seg.addEventListener('click',()=>{
